@@ -1,0 +1,5 @@
+profile: service
+defaultPackage: azdio.cache
+---
+testFramework: junit
+sourceLanguage: java

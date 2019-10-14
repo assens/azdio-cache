@@ -1,0 +1,40 @@
+---
+micronaut:
+  application:
+    name: azdio-cache
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        step: PT1M
+        descriptions: true
+  server:
+    port: 9050
+endpoints:
+  all:
+    enabled: true
+    sensitive: false
+---
+hazelcast:
+  config:
+    instance-name: mdw
+    group:
+      name: mdw
+      password: mdw
+    network:
+      port:
+        5701
+      interfaces:
+      - 10.0.110.28
+      public-address: '10.0.110.28:5701'
+      join:
+        multicast:
+          enabled: true
+        tcp-ip:
+          enabled: false
+    properties:
+      hazelcast.logging.type: slf4j
+  management-center:
+    enabled: true
+    update-interval: 5
+    url: http://localhost:9091/hazelcast-mancenter
