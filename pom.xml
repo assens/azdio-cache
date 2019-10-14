@@ -27,6 +27,8 @@
     <spring-data.version>2.1.10.RELEASE</spring-data.version>
     <hibernate.version>5.3.11.Final</hibernate.version>
     <mdw.version>3.12-SNAPSHOT</mdw.version>
+    <spring-session.version>2.1.8.RELEASE</spring-session.version>
+    <spring-security.version>5.1.6.RELEASE</spring-security.version>
 
   </properties>
 
@@ -147,13 +149,31 @@
       <artifactId>spring-data-jpa</artifactId>
       <version>${spring-data.version}</version>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.springframework.session</groupId>
+      <artifactId>spring-session-hazelcast</artifactId>
+      <version>${spring-session.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-core</artifactId>
+      <version>${spring-security.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-web</artifactId>
+      <version>${spring-security.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.hibernate</groupId>
       <artifactId>hibernate-core</artifactId>
       <version>${hibernate.version}</version>
     </dependency>
-    
+
     <dependency>
       <groupId>com.azdio.mdw</groupId>
       <artifactId>mdw-base-enums</artifactId>
@@ -162,6 +182,17 @@
     <dependency>
       <groupId>com.azdio.mdw</groupId>
       <artifactId>mdw-base-domain</artifactId>
+      <version>${mdw.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.azdio.mdw</groupId>
+      <artifactId>mdw-base-services</artifactId>
       <version>${mdw.version}</version>
       <exclusions>
         <exclusion>

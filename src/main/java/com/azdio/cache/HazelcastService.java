@@ -2,9 +2,12 @@ package com.azdio.cache;
 
 import static com.hazelcast.config.EvictionConfig.MaxSizePolicy.ENTRY_COUNT;
 import static java.util.Objects.nonNull;
+import static org.springframework.session.hazelcast.HazelcastSessionRepository.PRINCIPAL_NAME_ATTRIBUTE;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,12 +26,19 @@ import org.reflections.scanners.TypeAnnotationsScanner;
 import org.springframework.data.jpa.repository.QueryHints;
 
 import com.azdio.cache.HazelcastConfiguration.CacheConfig;
+import com.azdio.cache.HazelcastConfiguration.Config.Group;
+import com.azdio.cache.HazelcastConfiguration.Config.Network.Interfaces;
+import com.azdio.cache.HazelcastConfiguration.Config.Network.Join.Multicast;
+import com.azdio.cache.HazelcastConfiguration.Config.Network.Join.TcpIp;
 import com.azdio.cache.HazelcastConfiguration.ManagementCenter;
 import com.azdio.cache.json.CacheSimpleConfigMixIn;
 import com.azdio.cache.json.ConfigMixIn;
 import com.azdio.cache.json.DiscoveryConfigMixIn;
 import com.azdio.cache.json.EvictionConfigMixIn;
 import com.azdio.cache.json.ExecutorConfigMixIn;
+import com.azdio.mdw.domain.ImageEntity;
+import com.azdio.mdw.domain.ImageEntityWithContent;
+import com.azdio.mdw.domain.ImageEntityWithHash;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.config.CacheSimpleConfig;
 import com.hazelcast.config.CacheSimpleConfig.ExpiryPolicyFactoryConfig;
@@ -55,8 +65,6 @@ import lombok.Getter;
 
 @Singleton
 public class HazelcastService {
-
-  private static final String PRINCIPAL_NAME_ATTRIBUTE = "principalName";
 
   @Getter
   private final HazelcastConfiguration hazelcastConfiguration;
@@ -92,10 +100,11 @@ public class HazelcastService {
     network.setPort(hzConfig.getNetwork().getPort());
     network.setPortCount(hzConfig.getNetwork().getPortCount());
     network.setPortAutoIncrement(hzConfig.getNetwork().isPortAutoIncrement());
+
+    final Interfaces interfaces = hzConfig.getNetwork().getInterfaces();
     network.getInterfaces()
-        .setEnabled(true)
-        .setInterfaces(hzConfig.getNetwork().getInterfaces());
-    network.setPublicAddress(hzConfig.getNetwork().getPublicAddress());
+        .setEnabled(interfaces.isEnabled());
+    interfaces.getPublicAddress().forEach(ip -> network.getInterfaces().addInterface(ip));
 
     join.getAwsConfig().setEnabled(false);
     join.getAzureConfig().setEnabled(false);
@@ -103,12 +112,18 @@ public class HazelcastService {
     join.getGcpConfig().setEnabled(false);
     join.getKubernetesConfig().setEnabled(false);
 
-    multicastConfig.setEnabled(hzConfig.getNetwork().getJoin().getMulticast().isEnabled());
+    final Multicast multicast = hzConfig.getNetwork().getJoin().getMulticast();
+    multicastConfig
+        .setEnabled(multicast.isEnabled())
+        .setLoopbackModeEnabled(multicast.isLoopbackModeEnabled());
 
-    tcpIpConfig.setEnabled(hzConfig.getNetwork().getJoin().getTcpIp().isEnabled());
-    tcpIpConfig.setMembers(hzConfig.getNetwork().getJoin().getTcpIp().getMembers());
+    final TcpIp tcpIp = hzConfig.getNetwork().getJoin().getTcpIp();
+    tcpIpConfig
+        .setEnabled(tcpIp.isEnabled())
+        .setMembers(tcpIp.getMembers());
 
-    config.setGroupConfig(new GroupConfig(hzConfig.getGroup().getName(), hzConfig.getGroup().getPassword()));
+    final Group group = hzConfig.getGroup();
+    config.setGroupConfig(new GroupConfig(group.getName(), group.getPassword()));
 
     hzConfig.getProperties().forEach((key, value) -> config.getProperties().setProperty((String) key, (String) value));
 
@@ -121,9 +136,7 @@ public class HazelcastService {
       config.setManagementCenterConfig(managementCenterConfig);
     }
 
-    this.hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(config);
-
-    final Reflections reflections = new Reflections("com.azdio.mdw.domain",
+    final Reflections reflections = new Reflections("com.azdio.mdw",
         new TypeAnnotationsScanner(),
         new SubTypesScanner(),
         new MethodAnnotationsScanner(),
@@ -133,18 +146,29 @@ public class HazelcastService {
     final Set<Class<?>> cacheableEntities = reflections.getTypesAnnotatedWith(javax.persistence.Cacheable.class);
     cacheableEntities.forEach(entityClass -> config.addCacheConfig(entityCacheSimpleConfig(entityClass)));
 
+    // Collections fields cache
+    final Set<Field> cachedFields = reflections.getFieldsAnnotatedWith(org.hibernate.annotations.Cache.class);
+    cachedFields.stream()
+        .forEach(field -> config.addCacheConfig(fieldCacheSimpleConfig(field)));
+
     // Query Caches
-    final Set<Method> hintMethods = reflections.getMethodsAnnotatedWith(QueryHints.class);
+    final Set<Method> hintMethods = reflections.getMethodsAnnotatedWith(org.springframework.data.jpa.repository.QueryHints.class);
     hintMethods.stream()
         .map(this::hintCacheSimpleConfig)
         .filter(Optional::isPresent)
         .map(Optional::get)
         .forEach(config::addCacheConfig);
 
-    // // Hibernate Query Caches
-    // // http://docs.jboss.org/hibernate/orm/5.3/userguide/html_single/Hibernate_User_Guide.html#caching-query
+    // Hibernate Query Caches
+    // http://docs.jboss.org/hibernate/orm/5.3/userguide/html_single/Hibernate_User_Guide.html#caching-query
     config.addCacheConfig(cacheConfig("default-query-results-region"));
     config.addCacheConfig(defaultUpdateTimestampsCacheConfig());
+
+    // Images cache
+    final Set<Class<? extends ImageEntity>> imageEntities = new HashSet<>();
+    imageEntities.addAll(reflections.getSubTypesOf(ImageEntityWithHash.class));
+    imageEntities.addAll(reflections.getSubTypesOf(ImageEntityWithContent.class));
+    imageEntities.forEach(imageEntity -> config.addCacheConfig(imageEntityCacheSimpleConfig(imageEntity)));
 
     // Spring Session
     final MapAttributeConfig attributeConfig = new MapAttributeConfig()
@@ -163,6 +187,8 @@ public class HazelcastService {
     // User playing devices data (VodTracking)
     config.getMapConfig("PlayingDevices.*")
         .setMaxIdleSeconds(1800); // keep the data for half an hour
+
+    this.hazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(config);
 
   }
 
@@ -211,6 +237,18 @@ public class HazelcastService {
         new CacheSimpleConfig.ExpiryPolicyFactoryConfig.TimedExpiryPolicyFactoryConfig(
             CacheSimpleConfig.ExpiryPolicyFactoryConfig.TimedExpiryPolicyFactoryConfig.ExpiryPolicyType.CREATED,
             new CacheSimpleConfig.ExpiryPolicyFactoryConfig.DurationConfig(durationAmount, timeUnit)));
+  }
+
+  private CacheSimpleConfig fieldCacheSimpleConfig(final Field field) {
+    final String cacheName = field.getDeclaringClass().getCanonicalName() + "." + field.getName();
+    final CacheSimpleConfig cacheConfig = cacheConfig(cacheName);
+    cacheConfig.setWriteThrough(false);
+    return cacheConfig;
+  }
+
+  private CacheSimpleConfig imageEntityCacheSimpleConfig(final Class<? extends ImageEntity> imageEntity) {
+    final String cacheName = "ImagesCache.".concat(imageEntity.getSimpleName());
+    return cacheConfig(cacheName);
   }
 
   private Optional<CacheSimpleConfig> hintCacheSimpleConfig(final Method method) {

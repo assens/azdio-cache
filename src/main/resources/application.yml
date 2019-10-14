@@ -25,8 +25,9 @@ hazelcast:
       port:
         5701
       interfaces:
-      - 10.0.110.28
-      public-address: '10.0.110.28:5701'
+        enabled: false
+        public-address:
+        - 127.0.0.1
       join:
         multicast:
           enabled: true

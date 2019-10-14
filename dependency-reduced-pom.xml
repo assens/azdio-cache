@@ -213,6 +213,7 @@
     <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
     <maven.compiler.target>${jdk.version}</maven.compiler.target>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <hibernate.version>5.3.11.Final</hibernate.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <exec.mainClass>com.azdio.cache.HazelcastApplication</exec.mainClass>
     <jdk.version>1.8</jdk.version>

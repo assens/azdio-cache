@@ -36,12 +36,20 @@ public class HazelcastConfiguration {
     @ConfigurationProperties("network")
     public static class Network {
       @Data
+      @ConfigurationProperties("interfaces")
+      public static class Interfaces {
+        private boolean enabled;
+        private Set<String> publicAddress = new HashSet<String>();
+      }
+
+      @Data
       @ConfigurationProperties("join")
       public static class Join {
         @Data
         @ConfigurationProperties("multicast")
         public static class Multicast {
           private boolean enabled = false;
+          private boolean loopbackModeEnabled = false;
         }
 
         @Data
@@ -60,8 +68,8 @@ public class HazelcastConfiguration {
       private int port = NetworkConfig.DEFAULT_PORT;
       private int portCount = 100;
       private boolean portAutoIncrement = true;
-      private Set<String> interfaces = new HashSet<>();
       private String publicAddress;
+      private Interfaces interfaces;
       private Join join;
 
     }
