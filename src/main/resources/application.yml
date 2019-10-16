@@ -35,7 +35,10 @@ hazelcast:
           enabled: false
     properties:
       hazelcast.logging.type: slf4j
+      hazelcast.shutdownhook.policy: GRACEFUL
+      #hazelcast.shutdownhook.policy: SHUTDOWN
   management-center:
     enabled: true
     update-interval: 5
     url: http://localhost:9091/hazelcast-mancenter
+    

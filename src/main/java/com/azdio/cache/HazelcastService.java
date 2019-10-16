@@ -194,7 +194,7 @@ public class HazelcastService {
 
   @PreDestroy
   public void destroy() {
-    hazelcastInstance.shutdown();
+    // hazelcastInstance.shutdown(); No need.
   }
 
   public Set<String> getCacheNames() {
