@@ -28,7 +28,7 @@
     <hibernate.version>5.3.11.Final</hibernate.version>
     <mdw.version>3.12-SNAPSHOT</mdw.version>
     <spring-session.version>2.1.8.RELEASE</spring-session.version>
-    <spring-security.version>5.1.6.RELEASE</spring-security.version>
+    <spring-security.version>5.2.10.RELEASE</spring-security.version>
 
   </properties>
 
