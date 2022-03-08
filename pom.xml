@@ -23,7 +23,7 @@
     <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
 
     <lombok.version>1.18.10</lombok.version>
-    <hazelcast.version>3.12.3</hazelcast.version>
+    <hazelcast.version>5.1</hazelcast.version>
     <spring-data.version>2.1.10.RELEASE</spring-data.version>
     <hibernate.version>5.3.11.Final</hibernate.version>
     <mdw.version>3.12-SNAPSHOT</mdw.version>
